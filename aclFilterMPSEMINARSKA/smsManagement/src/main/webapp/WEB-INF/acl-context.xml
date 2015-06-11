@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:security="http://www.springframework.org/schema/security"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:util="http://www.springframework.org/schema/util"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+   http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+   http://www.springframework.org/schema/security 
+   http://www.springframework.org/schema/security/spring-security-3.1.xsd
+   http://www.springframework.org/schema/jdbc 
+   http://www.springframework.org/schema/jdbc/spring-jdbc-3.1.xsd
+   http://www.springframework.org/schema/context
+   http://www.springframework.org/schema/context/spring-context-3.0.xsd
+   http://www.springframework.org/schema/tx
+   http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+   http://www.springframework.org/schema/util
+   http://www.springframework.org/schema/util/spring-util-3.0.xsd">
+
+	<!-- Enables Method Security and Expression-based access control -->
+
+	<security:global-method-security
+		secured-annotations="enabled" access-decision-manager-ref="customAccessDecisionManager"
+		pre-post-annotations="enabled">
+		<security:expression-handler ref="customExpressionHandler" />
+	</security:global-method-security>
+
+	<bean id="aclUpdatePostVoter" class="org.springframework.security.acls.AclEntryVoter">
+		<constructor-arg ref="aclService" />
+		<constructor-arg value="ACL_POST_UPDATE" />
+		<constructor-arg>
+			<list>
+				<util:constant
+					static-field="org.springframework.security.acls.domain.BasePermission.ADMINISTRATION" />
+			</list>
+		</constructor-arg>
+		<property name="processDomainObjectClass" value="mk.ukim.finki.mp.smsManagement.model.mockSMS" />
+	</bean>
+	<bean id="aclReadPostVoter" class="org.springframework.security.acls.AclEntryVoter">
+		<constructor-arg ref="aclService" />
+		<constructor-arg value="ACL_POST_READ" />
+		<constructor-arg>
+			<list>
+				<util:constant
+					static-field="org.springframework.security.acls.domain.BasePermission.READ" />
+			</list>
+		</constructor-arg>
+		<property name="processDomainObjectClass" value="mk.ukim.finki.mp.smsManagement.model.mockSMS" />
+	</bean>
+
+
+	<!-- Declare an acl service -->
+	<bean class="org.springframework.security.acls.jdbc.JdbcMutableAclService"
+		id="aclService">
+		<constructor-arg ref="myDataSource" />
+		<constructor-arg ref="lookupStrategy" />
+		<constructor-arg ref="aclCache" />
+		<property name="classIdentityQuery" value="SELECT @@IDENTITY" />
+		<property name="sidIdentityQuery" value="SELECT @@IDENTITY" />
+	</bean>
+
+	<!-- Declare a lookup strategy -->
+	<bean id="lookupStrategy"
+		class="org.springframework.security.acls.jdbc.BasicLookupStrategy">
+		<constructor-arg>
+			<ref bean="myDataSource" />
+		</constructor-arg>
+		<constructor-arg ref="aclCache" />
+		<constructor-arg ref="aclAuthorizationStrategy" />
+		<constructor-arg ref="auditLogger" />
+	</bean>
+
+	<!-- Declare a datasource <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource" 
+		destroy-method="close" p:driverClass="com.mysql.jdbc.Driver" p:jdbcUrl="jdbc:mysql://localhost:3306/aclproject" 
+		p:user="root" p:password="Papagalce1993" p:acquireIncrement="5" p:idleConnectionTestPeriod="60" 
+		p:maxPoolSize="100" p:maxStatements="50" p:minPoolSize="10" /> Declare an 
+		acl cache -->
+
+
+	<!-- Generic cache manager based on the JDK ConcurrentMap -->
+
+
+
+	<tx:annotation-driven transaction-manager="transactionManager" />
+	<bean id="aclCache"
+		class="org.springframework.security.acls.domain.EhCacheBasedAclCache">
+		<constructor-arg>
+			<bean class="org.springframework.cache.ehcache.EhCacheFactoryBean">
+				<property name="cacheManager">
+					<bean class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean">
+						<property name="shared" value="true" />
+
+					</bean>
+				</property>
+				<property name="cacheName" value="aclCache" />
+			</bean>
+		</constructor-arg>
+	</bean>
+
+	<!-- Declare an acl authorization strategy -->
+	<bean id="aclAuthorizationStrategy"
+		class="org.springframework.security.acls.domain.AclAuthorizationStrategyImpl">
+		<constructor-arg>
+			<list>
+				<bean
+					class="org.springframework.security.core.authority.GrantedAuthorityImpl">
+					<constructor-arg value="ROLE_ADMIN" />
+				</bean>
+				<bean
+					class="org.springframework.security.core.authority.GrantedAuthorityImpl">
+					<constructor-arg value="ROLE_ADMIN" />
+				</bean>
+				<bean
+					class="org.springframework.security.core.authority.GrantedAuthorityImpl">
+					<constructor-arg value="ROLE_ADMIN" />
+				</bean>
+			</list>
+		</constructor-arg>
+	</bean>
+
+	<!-- Declare a custom PermissionEvaluator We'll rely on the standard AclPermissionEvaluator 
+		implementation -->
+
+	<bean id="customAccessDecisionManager"
+		class="org.springframework.security.access.vote.AffirmativeBased">
+		<property name="decisionVoters">
+			<list>
+				<ref bean="preInvocationAuthorizationAdviceVoter" />
+				<ref bean="aclUpdatePostVoter" />
+				<ref bean="aclReadPostVoter" />
+			</list>
+		</property>
+	</bean>
+
+	<bean id="preInvocationAuthorizationAdviceVoter"
+		class="org.springframework.security.access.prepost.PreInvocationAuthorizationAdviceVoter">
+		<constructor-arg>
+			<bean
+				class="org.springframework.security.access.expression.method.ExpressionBasedPreInvocationAdvice" />
+		</constructor-arg>
+	</bean>
+
+	<bean id="customPermissionEvaluator"
+		class="org.springframework.security.acls.AclPermissionEvaluator">
+		<constructor-arg ref="aclService" />
+	</bean>
+
+	<bean id="customExpressionHandler"
+		class="org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler">
+		<property name="permissionEvaluator" ref="customPermissionEvaluator" />
+	</bean>
+
+
+
+	<!-- Declare an audit logger -->
+	<bean id="auditLogger"
+		class="org.springframework.security.acls.domain.ConsoleAuditLogger" />
+	
+
+</beans>
